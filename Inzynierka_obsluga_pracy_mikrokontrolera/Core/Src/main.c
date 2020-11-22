@@ -46,6 +46,27 @@
 #define GYR_SCZYTANIE_POCZATEK 0x28
 #define GYR_WSZYSTKIE_OSIE (GYR_READ | GYR_MULTIREAD | GYR_SCZYTANIE_POCZATEK)
 
+//AKCELEROMETR
+#define ACC_USTAWIENIA 0x57
+#define ACC_ADRES (0x19 << 1)
+#define ACC_CTRL_REG1_A 0x20
+#define ACC_CTRL_REG4_A 0x23
+#define ACC_SCZYTANIE_POCZATEK 0x28
+#define ACC_MULTI_READ 0x80
+#define ACC_WSZYSTKIE_OSIE (ACC_MULTI_READ | ACC_SCZYTANIE_POCZATEK)
+#define ACC_SET_4G 0x10
+
+//MAGNETOMETR
+#define MAG_ADRES 0x3C
+#define MAG_CRB_REG 0x01
+#define MAG_CRA_REG 0x00
+#define MAG_MR_REG 0x02
+#define MAG_ZAKRES 0x80
+#define MAG_USTAWIENIA 0x00
+#define MAG_SCZYTANIE_POCZATEK 0x03
+#define MAG_WSZYSTKIE_OSIE (ACC_MULTI_READ | MAG_SCZYTANIE_POCZATEK)
+#define MAG_CZESTOTLIWOSC 0x18
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -104,6 +125,56 @@ void Setup_L3GD20(SPI_HandleTypeDef* spi){
 	HAL_GPIO_WritePin(GYR_SS_GPIO_Port, GYR_SS_Pin, GPIO_PIN_SET);
 	HAL_Delay(100);
 }
+
+void Setup_AKCELEROMETR()
+{
+/*
+ * Uruchomienie akcelerometru w trzech osiach, zmiana czestotliwosci jego dzialania na 100Hz,
+ * zmiana zakresu pomiarowego z +-2g na +-4g - jednostek przyspieszenia ziemskiego
+ */
+	uint8_t tmp = ACC_USTAWIENIA;
+
+	//AKCELEROMETR - aktywacja, 100Hz, osie XYZ
+	HAL_I2C_Mem_Write(&hi2c1, ACC_ADRES, ACC_CTRL_REG1_A, 1, &tmp, 1, 100);
+
+	//AKCELEROMETR - zmiana zakresu pomiarowego z +-2g na +-4g
+	tmp = ACC_SET_4G;
+	HAL_I2C_Mem_Write(&hi2c1, ACC_ADRES, ACC_CTRL_REG4_A, 1, &tmp, 1, 100);
+
+}
+void Setup_MAGNETOMETR(){
+/*
+ * Uruchomienie magnetometru w trybie ciaglej pracy,
+ * zmiana czestotliwosci pracy na 75Hz, zmiana zakresu pomiarowego
+ * na +-4G - gaus
+ */
+
+	uint8_t tmp= MAG_USTAWIENIA;
+
+	//MAGNETOMETR - aktywacja - continous conversion mode
+	HAL_I2C_Mem_Write(&hi2c1, MAG_ADRES, MAG_MR_REG, 1, &tmp, 1, 100);
+
+	//MAGNETOMETR - czestotliwosc
+	tmp = MAG_CZESTOTLIWOSC;
+	HAL_I2C_Mem_Write(&hi2c1, MAG_ADRES, MAG_CRA_REG, 1, &tmp, 1, 100);
+
+	//MAGNETOMETR - zakres pomiarowy +-4
+	tmp = MAG_ZAKRES;
+	HAL_I2C_Mem_Write(&hi2c1, MAG_ADRES, MAG_CRB_REG, 1, &tmp, 1, 100);
+}
+
+void Setup_LSM303DLHC(){
+/*
+ * Funkcja uruchamiajaca konfiguracje akcelerometru,
+ * a nastepnie magnetometru
+ */
+	HAL_Delay(100);
+	Setup_AKCELEROMETR();
+	HAL_Delay(100);
+	Setup_MAGNETOMETR();
+	HAL_Delay(100);
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -139,6 +210,10 @@ int main(void)
   MX_TIM11_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+
+  //AKCELEROMETR i MAGNETOMETR - setup
+  Setup_LSM303DLHC();
+
 
   //ZYROSKOP - setup
   Setup_L3GD20(&hspi1);
