@@ -27,7 +27,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <limits.h>
+#include <math.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -92,6 +95,10 @@ float Z_mem = 0; // Poprzednia wartość przyspieszenia w osi OZ
 float X_roznica = 0; // Przechowywuje roznice przyspieszenia w osi OX
 float Y_roznica = 0; // Przechowywuje roznice przyspieszenia w osi OY
 float Z_roznica = 0; // Przechowywuje roznice przyspieszenia w osi OZ
+
+float X_m = 0; // Zawiera pole magnetyczne w osi OX w jednostce G - gauss
+float Y_m = 0; // Zawiera pole magnetyczne w osi OY w jednostce G - gauss
+float Z_m = 0; // Zawiera pole magnetyczne w osi OZ w jednostce G - gauss
 
 /* USER CODE END PV */
 
@@ -263,6 +270,14 @@ int main(void)
 					   Y_a = ((float)((int16_t)((Dane[3] << 8) | Dane[2])) * 4.0) / (float) INT16_MAX;
 					   Z_a = ((float)((int16_t)((Dane[5] << 8) | Dane[4])) * 4.0) / (float) INT16_MAX;
 
+					   //Wywolanie odczytania danych z wszystkich trzech osi dla magnetometru
+					   HAL_I2C_Mem_Read(&hi2c1, MAG_ADRES, MAG_WSZYSTKIE_OSIE, 1, Dane, 6, 100);
+
+					   //Zespolenie bajtu starszego i mlodszego, przetworzenie sczytanych danych
+					   X_m = ((float)((int16_t)((Dane[0] << 8) | Dane[1])) * 4.0)/(float) INT16_MAX;
+					   Y_m = ((float)((int16_t)((Dane[2] << 8) | Dane[3])) * 4.0)/(float) INT16_MAX;
+					   Z_m = ((float)((int16_t)((Dane[4] << 8) | Dane[5])) * 4.0)/(float) INT16_MAX;
+
 
 					   /*
 						* Zapalenie diod w celu sprawdzenia poprawnosci dzialania programu, kolejno:
@@ -280,6 +295,15 @@ int main(void)
 
 					   //Odczytanie rozmiaru wiadomosci oraz jej zapis do zmiennej wiadomosci
 					   Rozmiar = sprintf((char *)Wiadomosc, "%f %f %f \n", X_a,Y_a,Z_a);
+
+					   //Przeslanie wiadomosci poprzez UART2
+					   HAL_UART_Transmit(&huart2, (uint8_t*) Wiadomosc,  Rozmiar, 100);
+
+					   //Odczytanie rozmiaru wiadomosci oraz jej zapis do zmiennej wiadomosci
+					   Rozmiar = sprintf((char *)Wiadomosc, "%f %f %f \n", X_m,Y_m,Z_m);
+
+					   //Przeslanie wiadomosci poprzez UART2
+					   HAL_UART_Transmit(&huart2, (uint8_t*) Wiadomosc,  Rozmiar, 100);
 
 					   /*
 					    * Zapis pomirow w pamieci dla nastepnego powtorzenia petli programu
