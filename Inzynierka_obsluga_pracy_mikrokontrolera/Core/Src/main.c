@@ -37,6 +37,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -58,7 +60,18 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+volatile int flaga = 0; //zmienna pomocnicza do obslugi przerwan z timera 11
 
+void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef* htim)
+{
+/*
+ * Reimplementacja HAL_TIM_PeriodElapsedCallback w celu uchwycenia
+ * przerwania pochodzacego od timera nr 11
+ */
+	if(htim == &htim11){
+		flaga = 1;
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -99,6 +112,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+
+  //TIM11 start - timer 50Hz
+  HAL_TIM_Base_Start_IT(&htim11);
   while (1)
   {
     /* USER CODE END WHILE */
