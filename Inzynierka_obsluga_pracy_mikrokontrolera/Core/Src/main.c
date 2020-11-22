@@ -38,6 +38,13 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+//ZYROSKOP
+#define GYR_REG1_A 0x20
+#define GYR_USTAWIENIA 0x0F
+#define GYR_MULTIREAD 0x40
+#define GYR_READ 0x80
+#define GYR_SCZYTANIE_POCZATEK 0x28
+#define GYR_WSZYSTKIE_OSIE (GYR_READ | GYR_MULTIREAD | GYR_SCZYTANIE_POCZATEK)
 
 /* USER CODE END PD */
 
@@ -71,6 +78,31 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef* htim)
 	if(htim == &htim11){
 		flaga = 1;
 	}
+}
+
+void Setup_L3GD20(SPI_HandleTypeDef* spi){
+/*
+ * Komunikacje SPI z L3GD20 rozpoczynamy poprzez ustawienie
+ * pinu GYR_SS w stan niski. Nastepnie przesylamy do zyroskopu
+ * informacje na temat jego trybu pracy oraz zmieniamy zakres pomiarowy
+ * na +-250 stopni. Na koniec zamykamy komunikacje poprzez ustawienie
+ * pinu GYR_SS w stan wysoki.
+ */
+	uint8_t tmp;
+
+	//Rozpoczecie komunikacji spi z zyroskopem
+	HAL_GPIO_WritePin(GYR_SS_GPIO_Port, GYR_SS_Pin, GPIO_PIN_RESET);
+
+	//Uruchomienie zyroskopu
+	tmp = GYR_REG1_A;
+	HAL_SPI_Transmit(spi, &tmp, 1, 100);
+
+	//Zmiana zakresu pomiarow na +-250 stopni
+	tmp = GYR_USTAWIENIA;
+	HAL_SPI_Transmit(spi, &tmp, 1, 100);
+
+	HAL_GPIO_WritePin(GYR_SS_GPIO_Port, GYR_SS_Pin, GPIO_PIN_SET);
+	HAL_Delay(100);
 }
 /* USER CODE END 0 */
 
@@ -107,6 +139,11 @@ int main(void)
   MX_TIM11_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+
+  //ZYROSKOP - setup
+  Setup_L3GD20(&hspi1);
+
+
 
   /* USER CODE END 2 */
 
