@@ -100,6 +100,10 @@ float X_m = 0; // Zawiera pole magnetyczne w osi OX w jednostce G - gauss
 float Y_m = 0; // Zawiera pole magnetyczne w osi OY w jednostce G - gauss
 float Z_m = 0; // Zawiera pole magnetyczne w osi OZ w jednostce G - gauss
 
+float X_g = 0; // Zawiera predkosc katowa w osi OX w stopniach
+float Y_g = 0; // Zawiera predkosc katowa w osi OY w stopniach
+float Z_g = 0; // Zawiera predkosc katowa w osi OZ w stopniach
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -126,8 +130,9 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef* htim)
 void Setup_L3GD20(SPI_HandleTypeDef* spi){
 /*
  * Komunikacje SPI z L3GD20 rozpoczynamy poprzez ustawienie
- * pinu GYR_SS w stan niski. Nastepnie przesylamy do zyroskopu
- * informacje na temat jego trybu pracy oraz zmieniamy zakres pomiarowy
+ * pinu GYR_SS w stan niski. Potem przesylamy do zyroskopu
+ * informacje na temat rejestru, ktory chcemy edytowac, a nastepnie na temat
+ * jego trybu pracy, zmieniajac zakres pomiarowy
  * na +-250 stopni. Na koniec zamykamy komunikacje poprzez ustawienie
  * pinu GYR_SS w stan wysoki.
  */
@@ -146,6 +151,25 @@ void Setup_L3GD20(SPI_HandleTypeDef* spi){
 
 	HAL_GPIO_WritePin(GYR_SS_GPIO_Port, GYR_SS_Pin, GPIO_PIN_SET);
 	HAL_Delay(100);
+}
+
+void L3GD20_MultiRead(SPI_HandleTypeDef* spi){
+/*
+ * Odczytanie danych z wszystkich trzech osi przy pomocy protokolu
+ * komunikacyjnego SPI omowionego w ramach funkcji Setup_L3GD20.
+ */
+	uint8_t tmp;
+
+	//Rozpoczecie komunikacji spi z zyroskopem
+	HAL_GPIO_WritePin(GYR_SS_GPIO_Port, GYR_SS_Pin, GPIO_PIN_RESET);
+
+	//Sczytanie wartosci wskazan trzech osi na raz (6 bajtow = 3x(mlodszy i starszy bajt))
+	tmp = GYR_WSZYSTKIE_OSIE; //Adres wraz z multireadem
+	HAL_SPI_Transmit(spi, &tmp, 1, 100);
+	HAL_SPI_Receive(spi, Dane, 6, 100); //Odebranie danych z zyroskopu
+
+	//Zakonczenie komunikacji spi z zyroskopem
+	HAL_GPIO_WritePin(GYR_SS_GPIO_Port, GYR_SS_Pin, GPIO_PIN_SET);
 }
 
 void Setup_AKCELEROMETR()
@@ -279,6 +303,14 @@ int main(void)
 					   Z_m = ((float)((int16_t)((Dane[4] << 8) | Dane[5])) * 4.0)/(float) INT16_MAX;
 
 
+					   //Wywolanie funkcji sczytujacej dane dla wszystkich osi dla zyroskopu
+					   L3GD20_MultiRead(&hspi1);
+
+					   //Zespolenie bajtu starszego i mlodszego, przetworzenie sczytanych danych
+					   X_g = ((float)((int16_t)((Dane[1] << 8) | Dane[0])) * 250.0)/(float) INT16_MAX;
+					   Y_g = ((float)((int16_t)((Dane[3] << 8) | Dane[2])) * 250.0)/(float) INT16_MAX;
+					   Z_g = ((float)((int16_t)((Dane[5] << 8) | Dane[4])) * 250.0)/(float) INT16_MAX;
+
 					   /*
 						* Zapalenie diod w celu sprawdzenia poprawnosci dzialania programu, kolejno:
 						* LD3 - dla osi OX
@@ -292,6 +324,12 @@ int main(void)
 					   if(X_roznica > 0.1)HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 					   if(Y_roznica > 0.1)HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 					   if(Z_roznica > 0.1)HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+
+					   //Odczytanie rozmiaru wiadomosci oraz jej zapis do zmiennej wiadomosci
+					   Rozmiar = sprintf((char *)Wiadomosc, "%f %f %f \n", X_g,Y_g,Z_g);
+
+					   //Przeslanie wiadomosci poprzez UART2
+					   HAL_UART_Transmit(&huart2, (uint8_t*) Wiadomosc,  Rozmiar, 100);
 
 					   //Odczytanie rozmiaru wiadomosci oraz jej zapis do zmiennej wiadomosci
 					   Rozmiar = sprintf((char *)Wiadomosc, "%f %f %f \n", X_a,Y_a,Z_a);
