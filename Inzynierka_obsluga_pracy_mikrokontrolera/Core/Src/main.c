@@ -77,6 +77,21 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+int8_t Wiadomosc[200]; // Zmienna pomocnicza sluzaca do przesylania informacji z mikrokontrolera na PC
+int16_t Rozmiar; // Zmienna pomocnicza przechowujaca rozmiar przesylanej informacji
+uint8_t Dane[6]; // Tablica pomocnicza do obslugi pobierania danych z urzadzen
+
+float X_a = 0; // Zawiera przyspieszenie w osi OX w jednostce g - przyspieszenia ziemskiego
+float Y_a = 0; // Zawiera przyspieszenie w osi OY w jednostce g - przyspieszenia ziemskiego
+float Z_a = 0; // Zawiera przyspieszenie w osi OZ w jednostce g - przyspieszenia ziemskiego
+
+float X_mem = 0; // Poprzednia wartość przyspieszenia w osi OX
+float Y_mem = 0; // Poprzednia wartość przyspieszenia w osi OY
+float Z_mem = 0; // Poprzednia wartość przyspieszenia w osi OZ
+
+float X_roznica = 0; // Przechowywuje roznice przyspieszenia w osi OX
+float Y_roznica = 0; // Przechowywuje roznice przyspieszenia w osi OY
+float Z_roznica = 0; // Przechowywuje roznice przyspieszenia w osi OZ
 
 /* USER CODE END PV */
 
@@ -230,6 +245,57 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim11);
   while (1)
   {
+	  /*
+	   * Calosc programu wykonuje sie wtedy gdy nasz TIM11 wywolal przerwanie
+	   * oraz zostal wcisniety przycisk B1.
+	   * Podwojne wywolanie sprawdzenia wcisniecia przycisku w celu filtracji drgan przycisku
+	   */
+	   if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {
+
+		   if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {
+
+				   if (flaga == 1){
+					   //Wywolanie odczytania danych z wszystkich trzech osi dla akcelerometru
+					   HAL_I2C_Mem_Read(&hi2c1, ACC_ADRES, ACC_WSZYSTKIE_OSIE, 1, Dane, 6, 100);
+
+					   //Zespolenie bajtu starszego i mlodszego, przetworzenie sczytanych danych
+					   X_a = ((float)((int16_t)((Dane[1] << 8) | Dane[0])) * 4.0) / (float) INT16_MAX;
+					   Y_a = ((float)((int16_t)((Dane[3] << 8) | Dane[2])) * 4.0) / (float) INT16_MAX;
+					   Z_a = ((float)((int16_t)((Dane[5] << 8) | Dane[4])) * 4.0) / (float) INT16_MAX;
+
+
+					   /*
+						* Zapalenie diod w celu sprawdzenia poprawnosci dzialania programu, kolejno:
+						* LD3 - dla osi OX
+						* LD4 - dla osi OY
+						* LD5 - dla osi OZ
+						*/
+					   X_roznica = fabs(X_mem - X_a);
+					   Y_roznica = fabs(Y_mem - Y_a);
+					   Z_roznica = fabs(Z_mem - Z_a);
+
+					   if(X_roznica > 0.1)HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+					   if(Y_roznica > 0.1)HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+					   if(Z_roznica > 0.1)HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+
+					   //Odczytanie rozmiaru wiadomosci oraz jej zapis do zmiennej wiadomosci
+					   Rozmiar = sprintf((char *)Wiadomosc, "%f %f %f \n", X_a,Y_a,Z_a);
+
+					   /*
+					    * Zapis pomirow w pamieci dla nastepnego powtorzenia petli programu
+					    * oraz zresetowanie flagi poprzez wyzerowanie jej wartosci
+					    */
+					   X_mem = X_a;
+					   Y_mem = Y_a;
+					   Z_mem = Z_a;
+
+					   flaga = 0;
+
+
+
+				   }
+		   	   }
+		   }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
