@@ -80,7 +80,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-int8_t Wiadomosc[200]; // Zmienna pomocnicza sluzaca do przesylania informacji z mikrokontrolera na PC
+int8_t Wiadomosc[200]; // Zmienna pomocnicza sluzaca do przesylania informacji z mikrokontrolera do PC
 int16_t Rozmiar; // Zmienna pomocnicza przechowujaca rozmiar przesylanej informacji
 uint8_t Dane[6]; // Tablica pomocnicza do obslugi pobierania danych z urzadzen
 
@@ -132,7 +132,7 @@ void Setup_L3GD20(SPI_HandleTypeDef* spi){
  * Komunikacje SPI z L3GD20 rozpoczynamy poprzez ustawienie
  * pinu GYR_SS w stan niski. Potem przesylamy do zyroskopu
  * informacje na temat rejestru, ktory chcemy edytowac, a nastepnie na temat
- * jego trybu pracy, zmieniajac zakres pomiarowy
+ * jego trybu pracy, z zakresem pomiarowy
  * na +-250 stopni. Na koniec zamykamy komunikacje poprzez ustawienie
  * pinu GYR_SS w stan wysoki.
  */
