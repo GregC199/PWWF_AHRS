@@ -61,9 +61,9 @@ for linia in file:
 
 def oblicz_roll_pitch_yaw(q):
     q._normalise()
-    roll = np.arctan2(2 * (q[0] * q[1] - q[2] * q[3]),1 - 2 * (q[1] ** 2 + q[2] ** 2))
-    pitch = np.arcsin(2 * (q[0] * q[2] + q[3] * q[1]))
-    yaw = np.arctan2(2 * (q[0] * q[3] - q[1] * q[2]),1 - 2 * (q[2] ** 2 + q[3] ** 2))
+    roll = np.arctan2(2 * (q[0] * q[1] - q[2] * q[3]),1 - 2 * (q[1] ** 2 + q[2] ** 2))*180/np.pi
+    pitch = np.arcsin(2 * (q[0] * q[2] + q[3] * q[1]))*180/np.pi
+    yaw = np.arctan2(2 * (q[0] * q[3] - q[1] * q[2]),1 - 2 * (q[2] ** 2 + q[3] ** 2))*180/np.pi
     
     katy = [roll,pitch,yaw]
     
@@ -121,8 +121,94 @@ print(b.get_axis(undefined=[0,0,0]))
 print(c)
 b._normalise()
 print(b)'''
+def filtr_Mahonyego(ki,kp):
     
+    roll = []
+    pitch = []
+    yaw = []
+    
+    q = Quaternion(1.0,0.0,0.0,0.0)
+    
+    E_m_q = Quaternion(0.0, 0.198283,-0.021548, 0.444230)
+    E_a_q = Quaternion(0.0, 0.0, 0.0, 1.0)
+        
+    s_m_qest = q.inverse * E_m_q * q
+    s_a_qest = q.inverse * E_a_q * q
+    
+    s_w_mes = [(acc_x[0]*s_a_qest[1] + mag_x[0]*s_m_qest[1]), (acc_y[0]*s_a_qest[2] + mag_y[0]*s_m_qest[2]), (acc_z[0]*s_a_qest[3] + mag_z[0]*s_m_qest[3])]
+    
+    s_w_qr1 = gyr_x[0]*dt + ki*s_w_mes[0]*dt + kp*s_w_mes[0]
+    s_w_qr2 = gyr_y[0]*dt + ki*s_w_mes[1]*dt + kp*s_w_mes[1]
+    s_w_qr3 = gyr_z[0]*dt + ki*s_w_mes[2]*dt + kp*s_w_mes[2]
+    
+    s_w_qr = Quaternion((0), (s_w_qr1), (s_w_qr2), (s_w_qr3))
+    
+    q12 = Quaternion(q.elements/2)
+    
+    q_dot = q12*s_w_qr
+    
+    q_k = Quaternion(q.elements + q_dot.elements*dt) 
+    
+    [r,p,y] = oblicz_roll_pitch_yaw(q_k)
+    roll.append(r)
+    pitch.append(p)
+    yaw.append(y)
+    
+    for iterator in range(1,len(czas)):
+        q = q_k
+        
+        s_m_q = Quaternion((0.0),(mag_x[iterator]),(mag_y[iterator]),(mag_z[iterator]))
+        s_a_q = Quaternion((0.0),(acc_x[iterator]),(acc_y[iterator]),(acc_z[iterator]))
+        
+        s_m_qest = q.inverse * E_m_q * q
+        s_a_qest = q.inverse * E_a_q * q
+        
+        s_w_mes1 = (acc_x[iterator]*s_a_qest[1] + mag_x[iterator]*s_m_qest[1])
+        s_w_mes2 = (acc_y[iterator]*s_a_qest[2] + mag_y[iterator]*s_m_qest[2])
+        s_w_mes3 = (acc_z[iterator]*s_a_qest[3] + mag_z[iterator]*s_m_qest[3])
+        
+        s_w_mes = [s_w_mes1, s_w_mes2, s_w_mes3]
+    
+        s_w_qr1 = gyr_x[iterator]*dt + ki*s_w_mes[0]*dt + kp*s_w_mes[0]
+        s_w_qr2 = gyr_y[iterator]*dt + ki*s_w_mes[1]*dt + kp*s_w_mes[1]
+        s_w_qr3 = gyr_z[iterator]*dt + ki*s_w_mes[2]*dt + kp*s_w_mes[2]
+        
+        s_w_qr = Quaternion((0), (s_w_qr1), (s_w_qr2), (s_w_qr3))
+        
+        q12 = Quaternion(q.elements/2)
+        
+        q_dot = q12*s_w_qr
+        
+        q_k = Quaternion(q.elements + q_dot.elements*dt)
+        
+        [r,p,y] = oblicz_roll_pitch_yaw(q_k)
+        roll.append(r)
+        pitch.append(p)
+        yaw.append(y)
+        
+        print(f'r: {r} p: {p} y:{y}')
+    
+    return [roll,pitch,yaw]
+    
+def filtr_Madgwicka(beta):
+    
+    roll = []
+    pitch = []
+    yaw = []
+    
+    q = Quaternion(1.0,0.0,0.0,0.0)
+    
+    s_m_q = Quaternion(0.0, (mag_x[0]), (mag_y[0]), (mag_z[0]))
+    
+    
+    
+    return [roll,pitch,yaw]
+
 [komplementarny_x,komplementarny_y,komplementarny_z] = filtr_komplementarny(0.5)
+[mahony_x, mahony_y, mahony_z] = filtr_Mahonyego(2,0.2)
+[madgwick_x, madgwick_y, madgwick_z] = filtr_Madgwicka(0.4)
+
+print(f'xlen: {mahony_x} ylen: {mahony_y} zlen: {mahony_z}')
 
 surowe_dane=pd.DataFrame({'czas':czas,'x': gyr_x, 'y': gyr_y, 'z': gyr_z})
 '''xlen = len(komplementarny_x)
@@ -133,9 +219,11 @@ print(f'xlen: {xlen} ylen: {ylen} zlen: {zlen} czaslen: {czaslen}')
 print(komplementarny_x)
 print(czas)'''
 komplementarny_dane=pd.DataFrame({'czas':czas,'x': komplementarny_x, 'y': komplementarny_y, 'z': komplementarny_z})
+mahony_dane=pd.DataFrame({'czas':czas,'x': mahony_x, 'y': mahony_y, 'z': mahony_z})
 
 plt.plot( surowe_dane.czas, surowe_dane.x, marker='', color='skyblue', linewidth=2,label="x")
 plt.plot( komplementarny_dane.czas, komplementarny_dane.x, marker='', color='green', linewidth=2,label="x_komp")
+plt.plot( mahony_dane.czas, mahony_dane.x, marker='', color='blue', linewidth=2,label="x_mah")
 plt.axis([0,czas[liczba_wierszy-1],-360,+360])
 plt.title('OX')
 plt.legend()
@@ -143,6 +231,7 @@ plt.show()
 
 plt.plot( surowe_dane.czas, surowe_dane.y, marker='', color='skyblue', linewidth=2,label="y")
 plt.plot( komplementarny_dane.czas, komplementarny_dane.y, marker='', color='green', linewidth=2,label="y_komp")
+plt.plot( mahony_dane.czas, mahony_dane.y, marker='', color='blue', linewidth=2,label="y_mah")
 plt.axis([0,czas[liczba_wierszy-1],-360,+360])
 plt.title('OY')
 plt.legend()
@@ -150,6 +239,7 @@ plt.show()
 
 plt.plot( surowe_dane.czas, surowe_dane.z, marker='', color='skyblue', linewidth=2,label="z")
 plt.plot( komplementarny_dane.czas, komplementarny_dane.z, marker='', color='green', linewidth=2,label="z_komp")
+plt.plot( mahony_dane.czas, mahony_dane.z, marker='', color='blue', linewidth=2,label="z_mah")
 plt.axis([0,czas[liczba_wierszy-1],-360,+360])
 plt.title('OZ')
 plt.legend()
