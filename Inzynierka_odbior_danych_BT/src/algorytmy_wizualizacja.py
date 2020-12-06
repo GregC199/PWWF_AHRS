@@ -125,13 +125,13 @@ print(b)'''
 [komplementarny_x,komplementarny_y,komplementarny_z] = filtr_komplementarny(0.5)
 
 surowe_dane=pd.DataFrame({'czas':czas,'x': gyr_x, 'y': gyr_y, 'z': gyr_z})
-xlen = len(komplementarny_x)
+'''xlen = len(komplementarny_x)
 ylen = len(komplementarny_y)
 zlen = len(komplementarny_z)
 czaslen = len(czas)
 print(f'xlen: {xlen} ylen: {ylen} zlen: {zlen} czaslen: {czaslen}')
 print(komplementarny_x)
-print(czas)
+print(czas)'''
 komplementarny_dane=pd.DataFrame({'czas':czas,'x': komplementarny_x, 'y': komplementarny_y, 'z': komplementarny_z})
 
 plt.plot( surowe_dane.czas, surowe_dane.x, marker='', color='skyblue', linewidth=2,label="x")
