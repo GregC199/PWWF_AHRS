@@ -4,7 +4,7 @@ import numpy as np
 import math
 from pyquaternion import Quaternion
 
-file = open("dane0.txt","r")
+file = open("dane102.txt","r")
 
 dt = 0.02
 
@@ -113,11 +113,138 @@ def filtr_komplementarny(tau):
     
     return [roll,pitch,yaw]
 
-def filtr_kalmana():
+def filtr_kalmana(w,v):
     
     roll = []
     pitch = []
     yaw = []
+    
+    F = np.array([[1.0, -dt], [0.0, 1.0]])
+    FT = F.transpose()
+    
+    B = np.array([[dt], [0.0]])
+    
+    H = np.array([1.0, 0.0])   
+    HT = H.transpose()
+
+    W = np.array([[w**2*dt, 0.0], [0.0, w**2*dt]])
+    V = v**2
+    
+    '''
+        Roll
+    '''
+    X_pri = np.array([[0], [0]])
+    P_pri = np.array([[1, 0], [0, 1]])
+    
+    X_post = np.array([[np.arctan2(acc_x[0], acc_z[0]) * 180 / np.pi], [0]])
+    P_post = np.array([[1,0], [0, 1]])
+     
+    roll.append(X_post[0][0])
+    
+    for iterator in range(1,len(czas)):
+        z = np.arctan2(acc_x[iterator], acc_z[iterator]) * 180 / np.pi
+        u = gyr_x[iterator]
+        '''
+            Predykcja
+        '''
+        X_pri = F*X_post + B*u
+        P_pri = F*P_post*FT + W
+        '''
+            Aktualizacja
+        '''
+        y = z - H*X_pri
+        
+        S = V + H*P_pri*HT
+        
+        K_pom = 1/(S)
+        K = P_pri*HT*K_pom
+        
+        X_post = X_pri + K*y
+        
+        KT = K.transpose()
+        P_post = P_pri - K*S*KT
+        
+        roll.append(X_post[0][0])
+        
+    '''
+        Pitch
+    '''
+    
+    X_pri = np.array([[0], [0]])
+    P_pri = np.array([[1, 0], [0, 1]])
+    
+    X_post = np.array([[np.arctan2(acc_y[0], acc_z[0]) * 180 / np.pi], [0]])
+    P_post = np.array([[1,0], [0, 1]])
+     
+    pitch.append(X_post[0][0])
+    
+    for iterator in range(1,len(czas)):
+        z = np.arctan2(acc_y[iterator], acc_z[iterator]) * 180 / np.pi
+        u = gyr_y[iterator]
+        '''
+            Predykcja
+        '''
+        X_pri = F*X_post + B*u
+        P_pri = F*P_post*FT + W
+        '''
+            Aktualizacja
+        '''
+        y = z - H*X_pri
+        
+        S = V + H*P_pri*HT
+        
+        K_pom = 1/(S)
+        K = P_pri*HT*K_pom
+        
+        X_post = X_pri + K*y
+        
+        KT = K.transpose()
+        P_post = P_pri - K*S*KT
+        
+        pitch.append(X_post[0][0])
+        
+    '''
+        Yaw
+    '''
+    
+    X_pri = np.array([[0], [0]])
+    P_pri = np.array([[1, 0], [0, 1]])
+    
+    normalise_mag=math.sqrt((mag_x[0]**2)+(mag_y[0]**2)+(mag_z[0]**2))
+    
+    yawMag = (np.arctan2( (-mag_y[0]*np.cos(roll[0])/normalise_mag + mag_z[0]*np.sin(roll[0])/normalise_mag  ) , (mag_x[0]*np.cos(pitch[0])/normalise_mag  + (mag_y[0]/normalise_mag)*np.sin(pitch[0])*np.sin(roll[0])+ mag_z[0]*np.sin(pitch[0])*np.cos(roll[0])/normalise_mag ) ))
+    X_post = np.array([[np.arctan2(acc_y[0], acc_z[0]) * 180 / np.pi], [0]])
+    P_post = np.array([[1,0], [0, 1]])
+     
+    yaw.append(X_post[0][0])
+    
+    for iterator in range(1,len(czas)):
+        
+        normalise_mag=math.sqrt((mag_x[iterator]**2)+(mag_y[iterator]**2)+(mag_z[iterator]**2))
+        yawMag=np.arctan2( (-mag_y[iterator]*np.cos(roll[iterator])/normalise_mag  + mag_z[iterator]*np.sin(roll[iterator])/normalise_mag  ) , (mag_x[iterator]*np.cos(pitch[iterator])/normalise_mag  + mag_y[iterator]*np.sin(pitch[iterator])*np.sin(roll[iterator])/normalise_mag + mag_z[iterator]*np.sin(pitch[iterator])*np.cos(roll[iterator])/normalise_mag ) )
+        z = yawMag * 180 / np.pi
+        u = gyr_z[iterator]
+        '''
+            Predykcja
+        '''
+        X_pri = F*X_post + B*u
+        P_pri = F*P_post*FT + W
+        '''
+            Aktualizacja
+        '''
+        y = z - H*X_pri
+        
+        S = V + H*P_pri*HT
+        
+        K_pom = 1/(S)
+        K = P_pri*HT*K_pom
+        
+        X_post = X_pri + K*y
+        
+        KT = K.transpose()
+        P_post = P_pri - K*S*KT
+        
+        yaw.append(X_post[0][0])
     
     return [roll,pitch,yaw]
 
@@ -230,7 +357,7 @@ def filtr_Madgwicka(beta,zeta):
     
     s_w_bq = zeta * s_w_eq * dt
     
-    s_w_eeq = Quaternion((0.0), (gyr_x[0]), (gyr_y[0]), (gyr_z[0])) - s_w_bq
+    s_w_eeq = Quaternion((0.0), (gyr_x[0]), (gyr_y[0]), (gyr_z[0]))*dt - s_w_bq
     
     q_dotk = q * s_w_eeq/2 - beta * Grad_Fk
     
@@ -288,11 +415,11 @@ def filtr_Madgwicka(beta,zeta):
     return [roll,pitch,yaw]
 
 [komplementarny_x,komplementarny_y,komplementarny_z] = filtr_komplementarny(0.5)
-[kalman_x,kalman_y,kalman_z] = filtr_kalmana()
+[kalman_x,kalman_y,kalman_z] = filtr_kalmana(1,2)
 [mahony_x, mahony_y, mahony_z] = filtr_Mahonyego(2,0.2)
-[madgwick_x, madgwick_y, madgwick_z] = filtr_Madgwicka(5,0.2)
+[madgwick_x, madgwick_y, madgwick_z] = filtr_Madgwicka(5.0,0.2)
 
-print(f'xlen: {madgwick_x} ylen: {madgwick_y} zlen: {madgwick_z}')
+print(f'xlen: {kalman_x} ylen: {kalman_y} zlen: {kalman_z}')
 
 surowe_dane=pd.DataFrame({'czas':czas,'x': gyr_x, 'y': gyr_y, 'z': gyr_z})
 
@@ -305,7 +432,7 @@ plt.plot( surowe_dane.czas, surowe_dane.x, marker='', color='skyblue', linewidth
 plt.plot( komplementarny_dane.czas, komplementarny_dane.x, marker='', color='green', linewidth=2,label="x_komp")
 plt.plot( mahony_dane.czas, mahony_dane.x, marker='', color='blue', linewidth=2,label="x_mah")
 plt.plot( madgwick_dane.czas, madgwick_dane.x, marker='', color='red', linewidth=2,label="x_mad")
-#plt.plot( kalman_dane.czas, kalman_dane.x, marker='', color='orange', linewidth=2,label="x_kal")
+plt.plot( kalman_dane.czas, kalman_dane.x, marker='', color='orange', linewidth=2,label="x_kal")
 plt.axis([0,czas[liczba_wierszy-1],-360,+360])
 plt.title('OX')
 plt.legend()
@@ -315,7 +442,7 @@ plt.plot( surowe_dane.czas, surowe_dane.y, marker='', color='skyblue', linewidth
 plt.plot( komplementarny_dane.czas, komplementarny_dane.y, marker='', color='green', linewidth=2,label="y_komp")
 plt.plot( mahony_dane.czas, mahony_dane.y, marker='', color='blue', linewidth=2,label="y_mah")
 plt.plot( madgwick_dane.czas, madgwick_dane.y, marker='', color='red', linewidth=2,label="y_mad")
-#plt.plot( kalman_dane.czas, kalman_dane.y, marker='', color='orange', linewidth=2,label="y_kal")
+plt.plot( kalman_dane.czas, kalman_dane.y, marker='', color='orange', linewidth=2,label="y_kal")
 plt.axis([0,czas[liczba_wierszy-1],-360,+360])
 plt.title('OY')
 plt.legend()
@@ -325,7 +452,7 @@ plt.plot( surowe_dane.czas, surowe_dane.z, marker='', color='skyblue', linewidth
 plt.plot( komplementarny_dane.czas, komplementarny_dane.z, marker='', color='green', linewidth=2,label="z_komp")
 plt.plot( mahony_dane.czas, mahony_dane.z, marker='', color='blue', linewidth=2,label="z_mah")
 plt.plot( madgwick_dane.czas, madgwick_dane.z, marker='', color='red', linewidth=2,label="z_mad")
-#plt.plot( kalman_dane.czas, kalman_dane.z, marker='', color='orange', linewidth=2,label="z_kal")
+plt.plot( kalman_dane.czas, kalman_dane.z, marker='', color='orange', linewidth=2,label="z_kal")
 plt.axis([0,czas[liczba_wierszy-1],-360,+360])
 plt.title('OZ')
 plt.legend()
