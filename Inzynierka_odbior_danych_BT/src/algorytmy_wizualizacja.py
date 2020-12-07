@@ -3,8 +3,9 @@ import pandas as pd
 import numpy as np
 import math
 from pyquaternion import Quaternion
+import time
 
-file = open("dane102.txt","r")
+file = open("dane0.txt","r")
 
 dt = 0.02
 
@@ -39,6 +40,22 @@ mahony_z = []
 madgwick_x = []
 madgwick_y = []
 madgwick_z = []
+
+kom_blad_x = 0
+kom_blad_y = 0
+kom_blad_z = 0
+
+kal_blad_x = 0
+kal_blad_y = 0
+kal_blad_z = 0
+
+mah_blad_x = 0
+mah_blad_y = 0
+mah_blad_z = 0
+
+mad_blad_x = 0
+mad_blad_y = 0
+mad_blad_z = 0
     
 for linia in file:
     dane = linia.split()
@@ -255,8 +272,8 @@ def filtr_Mahonyego(ki,kp):
     yaw = []
     
     q = Quaternion(1.0,0.0,0.0,0.0)
-    
-    E_m_q = Quaternion(0.0, 0.198283,-0.021548, 0.444230)
+    '''math.sqrt(0.192603**2+0.017521**2)'''
+    E_m_q = Quaternion(0.0, 0.192603, 0.017521, 0.457809)
     E_a_q = Quaternion(0.0, 0.0, 0.0, 1.0)
         
     s_m_qest = q.inverse * E_m_q * q
@@ -308,6 +325,8 @@ def filtr_Mahonyego(ki,kp):
         
         q_k = Quaternion(q.elements + q_dot.elements*dt)
         
+        q_k.unit
+        
         [r,p,y] = oblicz_roll_pitch_yaw(q_k)
         roll.append(r)
         pitch.append(p)
@@ -357,7 +376,7 @@ def filtr_Madgwicka(beta,zeta):
     
     s_w_bq = zeta * s_w_eq * dt
     
-    s_w_eeq = Quaternion((0.0), (gyr_x[0]), (gyr_y[0]), (gyr_z[0]))*dt - s_w_bq
+    s_w_eeq = Quaternion((0.0), (gyr_x[0]*dt), (gyr_y[0]*dt), (gyr_z[0]*dt)) - s_w_bq
     
     q_dotk = q * s_w_eeq/2 - beta * Grad_Fk
     
@@ -414,12 +433,62 @@ def filtr_Madgwicka(beta,zeta):
     
     return [roll,pitch,yaw]
 
+czas_kom = -time.time()
 [komplementarny_x,komplementarny_y,komplementarny_z] = filtr_komplementarny(0.5)
-[kalman_x,kalman_y,kalman_z] = filtr_kalmana(1,2)
-[mahony_x, mahony_y, mahony_z] = filtr_Mahonyego(2,0.2)
-[madgwick_x, madgwick_y, madgwick_z] = filtr_Madgwicka(5.0,0.2)
+czas_kom += time.time()
 
-print(f'xlen: {kalman_x} ylen: {kalman_y} zlen: {kalman_z}')
+czas_kal = -time.time()
+[kalman_x,kalman_y,kalman_z] = filtr_kalmana(1,2)
+czas_kal += time.time()
+
+czas_mah = -time.time()
+[mahony_x, mahony_y, mahony_z] = filtr_Mahonyego(0.1,0.5)
+czas_mah += time.time()
+
+czas_mad = -time.time()
+[madgwick_x, madgwick_y, madgwick_z] = filtr_Madgwicka(5.0,0.2)
+czas_mad += time.time()
+
+for iterator in range(0,len(czas)):
+    kom_blad_x += math.fabs((gyr_x[iterator] - komplementarny_x[iterator]))
+    kom_blad_y += math.fabs((gyr_y[iterator] - komplementarny_y[iterator]))
+    kom_blad_z += math.fabs((gyr_z[iterator] - komplementarny_z[iterator]))
+    
+    kal_blad_x += math.fabs((gyr_x[iterator] - kalman_x[iterator]))
+    kal_blad_y += math.fabs((gyr_y[iterator] - kalman_y[iterator]))
+    kal_blad_z += math.fabs((gyr_z[iterator] - kalman_z[iterator]))
+    
+    mah_blad_x += math.fabs((gyr_x[iterator] - mahony_x[iterator]))
+    mah_blad_y += math.fabs((gyr_y[iterator] - mahony_y[iterator]))
+    mah_blad_z += math.fabs((gyr_z[iterator] - mahony_z[iterator]))
+    
+    mad_blad_x += math.fabs((gyr_x[iterator] - madgwick_x[iterator]))
+    mad_blad_y += math.fabs((gyr_y[iterator] - madgwick_y[iterator]))
+    mad_blad_z += math.fabs((gyr_z[iterator] - madgwick_z[iterator]))
+
+kom_blad_x *= 1/len(czas)
+kom_blad_y *= 1/len(czas)
+kom_blad_z *= 1/len(czas)
+
+kal_blad_x *= 1/len(czas)
+kal_blad_y *= 1/len(czas)
+kal_blad_z *= 1/len(czas)
+
+mah_blad_x *= 1/len(czas)
+mah_blad_y *= 1/len(czas)
+mah_blad_z *= 1/len(czas)
+
+mad_blad_x *= 1/len(czas)
+mad_blad_y *= 1/len(czas)
+mad_blad_z *= 1/len(czas)
+
+print("Czasy trwania programu dla poszczegolnych filtracji")
+print(f'Komplementarny: {czas_kom} Kalman: {czas_kal} Mahony: {czas_mah} Madwick: {czas_mad}')
+print('Srednie bledy')
+print(f'Komplementarny: x {kom_blad_x} y{kom_blad_y} z{kom_blad_z}')
+print(f'Kalman: x {kal_blad_x} y{kal_blad_y} z{kal_blad_z}')
+print(f'Mahony: x {mah_blad_x} y{mah_blad_y} z{mah_blad_z}')
+print(f'Madgwick: x {mad_blad_x} y{mad_blad_y} z{mad_blad_z}')
 
 surowe_dane=pd.DataFrame({'czas':czas,'x': gyr_x, 'y': gyr_y, 'z': gyr_z})
 

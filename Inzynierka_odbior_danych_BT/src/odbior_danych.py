@@ -7,6 +7,7 @@ import serial
 from array import *
 import os
 from _ast import Try
+import os, sys
 
 '''
 Zmienne zwiazane portem COM
